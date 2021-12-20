@@ -1,0 +1,315 @@
+---
+title: "Effectiveness of different booster regimens for preventing infection and adverse outcomes in Puerto Rico"
+author: 
+  - M.M. Robles-Fontán and R.A. Irizarry
+#date: "`r format(Sys.time(), '%B %e, %Y')`"
+output: 
+  bookdown::pdf_document2:
+    number_section: FALSE
+    toc: FALSE
+linkcolor: blue
+bibliography: references.bib
+csl: nature.csl
+link-citations: yes
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message=FALSE, fig.width = 8, fig.height = 3, fig.align='center', out.extra = "", out.width = "100%", tab.cap.pre = "Table")
+options(digits = 3)
+```
+
+
+
+```{r}
+load("rdas/paper-data.rda")
+```
+
+```{r library, include=FALSE}
+library(bibtex)
+library(tidyverse)
+library(lubridate)
+library(splines)
+library(kableExtra)
+library(RColorBrewer)
+library(scales)
+library(flextable)
+set_flextable_defaults(fonts_ignore=TRUE)
+
+```
+
+```{r}
+source("funcs.R")
+source("init.R")
+```
+
+
+# Abstract 
+
+```{r}
+date_format <- function(x) format(x, "%B %e, %Y")
+```
+
+Recent laboratory and observational studies have demonstrated that the COVID-19 vaccine effectiveness wanes over time. In response, several jurisdictions have authorized the administration of booster doses. Since `r date_format(first_booster_day)`, Puerto Rico has administered `r make_pretty(totals$boosted)` booster shots. We used data collected and made public by the Puerto Rico Department of Health (PRDH) to evaluate the effectiveness of four different booster regimens at preventing SARS-CoV-2 laboratory confirmed infections and adverse COVID-19 outcomes. Specifically, we analyzed data from all `r make_pretty(totals$all_cases)` SARS-CoV-2 infections occurring since the vaccination process commenced on  `r date_format(first_day)`. We combined vaccination status, SARS-CoV-2 test results, and COVID-19 hospitalizations and deaths data, and fit a statistical model that adjusted for time-varying incidence rates and age group, to estimate time-varying vaccine effectiveness against infection and adverse outcomes.
+We find that, after 6 months, the `r manu_labels[["MOD"]]` and `r manu_labels[["PFR"]]` effectiveness against infection wanes substantially to 
+`r with(vax_cases_tab, text[months == max(months) & manu == "MOD"])` and 
+`r with(vax_cases_tab, text[months == max(months) & manu == "PFR"])`, respectively, while the `r manu_labels[["JSN"]]` wanes to 
+`r with(vax_cases_tab, text[months == "(2-4]" & manu == "JSN"])` after two months. However, after a booster shot of the corresponding initial vaccine manufacturer, effectiveness increased to `r with(bst_cases_tab, text[combo == "MOD + MOD"])` and 
+`r with(bst_cases_tab, text[combo == "PFR + PFR"])` for `r manu_labels[["MOD"]]` and `r manu_labels[["PFR"]]`, respectively.  The effectiveness for `r manu_labels[["JSN"]]` followed by either a `r manu_labels[["MOD"]]` or `r manu_labels[["PFR"]]` booster increased to  `r with(bst_cases_tab, text[combo == "JSN + MOD or PFR"])`, substantially higher than 
+`r with(vax_cases_tab, text[months == "0" & manu == "JSN"])`, the peak effectiveness reached with just one  shot. We also found that heterologous booster regimens restored effectiveness. Furthermore, we did not observe waning after two months of the booster shot. Finally, we found that all booster regimens provided increased protection against COVID-19 hospitalizations and deaths. Code and data to reproduce the analyses are provided here: https://github.com/rafalab/booster-eff-pr. 
+
+\pagebreak
+
+## Introduction
+
+The `r manu_labels[["MOD"]]`, `r manu_labels[["PFR"]]`, and `r manu_labels[["JSN"]]` 
+vaccines were shown to be highly effective at preventing COVID-19 outcomes in large randomized clinical trials. @CTPFR @CTMOD @CTJanssen
+<!--Subsequently, the United States Food and Drug Administration (FDA) gave these vaccines Emergency Use Authorizations (EUA) in late 2020 and early 2021. @food2021fdaP @food2021fdaM @food2021fdaJ -->
+<!-- #About six months into the vaccination process, infection rates increased among vaccinated and unvaccinated individuals in several jurisdictions,  -->
+<!-- # due to the increased transmissibility of the Delta variant. At that moment, it was unclear whether the Delta variant had immune escape capabilities and given the case surge, it became a real possibility. As such, time-varying effectiveness of the COVID-19 vaccines has been estimated in several observational studies.  -->
+However, several observational studies have demonstrated that vaccine effectiveness wanes over time. A retrospective cohort study that evaluated electronic health records of individuals that are part of the Kaiser Permanente Southern California health-care organization found that BNT162b2 effectiveness against SARS-CoV-2 infections declined from 88% (95% CI 86% - 89%) during the first month after completion of primary series to 47% (95 CI 43 -51) after five months. @tartof2021effectiveness
+<!--The study found no statistically significant difference in protection between the  the Delta variant <!--%, 53% (95 CI 39 –65) after 4 months,
+non-delta variants.-->
+<!--67% (95 CI 45 –80) after 4–5 months.-->
+Two other observational studies found similar results. @chemaitelly2021waning  @rosenberg2021covid
+<!--A recent matched case-control observational study estimated BNT162b2 effectiveness against SARS-CoV-2 infection and severe, critical, or fatal disease. During the first month after completion of primary series, effectiveness against infection was estimated to peak at 77.5% (95 CI 76.4-78.6) and waned to 20% after 5 to 7 months after completion of primary series. No difference in variant-specific effectiveness is reported. However, effectiveness against any severe, critical o fatal case was reported to stay greater than 90% for ~ 6 months. @chemaitelly2021waning
+Another recent observational study based on New York state data assessed effectiveness of the BNT162b2, mRNA-1273, and Ad26.COV2.S vaccines against laboratory-confirmed SARS-CoV-2 infection and COVID-19 hospitalization in the midst of the Delta variant dominance. The authors found that before the dominance of the Delta variant, the median effectiveness against SARS-CoV-2 infection was 93.5% (95 CI 77.8 - 98.0) and decreased to 74.2% (95 CI 63.4 - 86.8) when the circulation of the Delta variant reached over 99%. Effectiveness against COVID-19 hospitalization remained over 86% but effectiveness declined for recipients 65 years and older. @rosenberg2021covid -->
+An observational study, also based on PRDH data, found that effectiveness against laboratory-confirmed SARS-CoV-2 infection, COVID-19 hospitalization and deaths wanes over time for the mRNA-1273, BNT162b2, and Ad26.COV2.S COVID-19 vaccines. At the peak of their protection, these vaccines had an effectiveness of 90% (95 CI 88 - 91), 87% (95 CI 85 - 89), and 58% (95 CI 51 - 65). After four months, effectiveness waned to about 70%, 60%, and 30% for mRNA-1273, BNT162b2, and Ad26.COV2.S, respectively. @robles2021time Here we analyze a more recent version of these data further to estimate primary series effectiveness past six months and booster regimens effectiveness.
+<!-- Similar to others,  this study did not find a difference in effectiveness when comparing the period dominated by the Delta variant to previous periods. @robles2021time-->
+
+Since the publication of these studies, several jurisdictions have authorized and commenced administering booster shots. An observational study from Israel evaluated vaccine effectiveness for BNT162b2 seven days after receipt of booster dose and compared to those receiving only two doses at least five months before. Booster shot effectiveness was estimated to be 93% (95 CI 88–97) for COVID-19 admission to hospital, 92% (95 CI 82–97) for COVID-19 severe disease, and 81% (95 CI 59–97) for COVID-19 death. @barda2021effectiveness A second observational study from Israel found that a BNT162b2 booster shot administered at least five months after completion of the primary series gave recipients 90% lower COVID-19 mortality in comparison to those who had not received the booster dose. Similarly, the study found that the BNT162b2 booster dose effectiveness against SARS-CoV-2 infection was estimated to be at 83% for those who had received a booster dose in comparison to those who had not. @arbel2021bnt162b2 A third observational study from Israel evaluated BNT162b2 booster shot effectiveness against infection and severe COVID-19 illness across age groups and found no significant difference in effectiveness among age groups. @bar2021protection
+
+<!-- On August 12, 2021, the FDA authorized the administration of a third dose of the mRNA-1273, BNT162b2 COVID-19 to immunocompromised individuals. @food2021fda1 On September 22, 2021, the FDA amended the EUA to allow the administration of a single booster dose to people 65 years and older, 18-64 at high risk of severe COVID-19, and 18-64 with frequent institutional or occupational exposure. @food2021fda2 With the growing evidence that the vaccine immunity waned, on October 20, 2021, the FDA expanded the EUA to allow the administration of a single booster dose of Janssen at least 2 months after the single-dose primary regimen to those 18 and older and the use of heterologous booster doses in eligible individuals. @food2021fda3-->
+
+In Puerto Rico, booster shot administration began on `r date_format(first_booster_day)`. By `r date_format(analysis_last_day)`, at least  `r make_pretty(totals$vaxed)` of the `r make_pretty(pr_pop)` individuals living in Puerto Rico had completed the COVID-19 vaccination primary series. Of these, `r make_pretty(totals$boosted)` individuals have received a booster dose. Furthermore, since the start of the vaccination process to `r format(last_day, "%B %e, %Y")`, Puerto Rico has recorded `r make_pretty(totals$all_cases)` SARS-CoV-2 laboratory confirmed infections, with `r make_pretty(totals$cases)` detected after boosters began being administered.
+<!--Puerto Rico experienced two SARS-CoV-2 infections surges, one starting in late March after restrictions were lifted and another in late June with the arrival of the Delta variant, the second intersecting with period in which boosters were offered, starting `r  date_format(first_booster_day)`. For this period, `r make_pretty(totals$all_cases)` SARS-CoV-2 infections have been detected with 
+`r make_pretty(totals$vaxed)` detected after `date_format(first_booster_day)`.-->
+We leveraged data collected by the PRDH to estimate time-varying vaccine effectiveness for all three vaccines, `r manu_labels[["MOD"]]`, `r manu_labels[["PFR"]]`, and `r manu_labels[["JSN"]]`, and the effect of four different booster regimens.
+<!-- of the vaccination process in preventing SARS-CoV-2 outcomes by comparing unvaccinated individuals 18 years or older to those who had completed the vaccination series (two weeks after final dose) for `r manu_labels[["MOD"]]`, `r manu_labels[["PFR"]]`, or `r manu_labels[["JSN"]]` COVID-19 vaccines, with the latter group divided into those that had received a booster and those who had not. We provide estimates of the effectiveness of the three COVID-19 vaccines protecting against SARS-CoV-2 infections, COVID-19 hospitalizations, and deaths before and after receiving the booster to quantify the importance of providing booster shots in Puerto Rico.-->
+
+## Methods
+
+
+We combined vaccination status, SARS-CoV-2 test results, and COVID-19 hospitalizations and deaths data, which permitted us to quantify the time-varying effectiveness of the `r manu_labels[["MOD"]]`, `r manu_labels[["PFR"]]`, and `r manu_labels[["JSN"]]` vaccines past six months and the effect of boosters shots. Specifically, we used data made publicly available by the PRDH. @robles2021time These data included a table with information for all individuals that have been vaccinated and a table for all individuals with a laboratory-confirmed SARS-CoV-2 infection recorded after `r date_format(first_day)`. Both tables included each individual's age group and gender. The vaccination table also included, for each individual, the date and manufacturer of each administered vaccine dose. This information was also included for vaccinated individuals represented in the cases table. The cases table also denoted if each individual had been hospitalized or died. Since in November there was a major outbreak in prisons, and prisoners were vaccinated almost exclusively with the `r manu_labels[["PFR"]]` vaccine, we removed these individuals from the analysis to avoid bias. The results with and without these individuals were similar, and because the code and data are available, one can easily run both analyses.
+
+From the vaccine data, we were able to compute daily counts of unvaccinated individuals, individuals receiving their first doses, individuals becoming fully vaccinated, and individuals receiving a booster shot for each vaccine manufacturer and demographic group. Furthermore, we computed counts of individuals vaccinated on day $t_v$ and counts of individuals boosted on day $t_b$ for each pair of dates $t_v < t_b$, for each demographic group and pair of vaccine manufacturers.
+
+From the cases table, we were able to compute daily counts of cases, hospitalizations, and deaths among the unvaccinated, the vaccinated without booster, and the vaccinated with booster for each demographic group. For the vaccinated, we further divided the counts by manufacturer combination. For the vaccinated, we also calculated the number of days since they were vaccinated, and for those that received a booster, the time since they received a booster. We computed rates for unvaccinated individuals and defined the population as the number of individuals that were unvaccinated and had not been infected within the last three months. 
+
+With these data in place, we were able to apply a previously developed statistical approach to estimate primary series vaccine effectiveness and booster regimen effectiveness as a function of time. @robles2021time Note that this is different from estimating effectiveness as a function of calendar date since the date individuals became fully vaccinated vary from January to December.
+
+
+<!-- The PRDH keeps all COVID-19 outcomes related data in a state-of-the-art repository, the BioPortal. Similarly, the PRDH stores all vaccine data, including COVID-19 vaccine, in the Puerto Rico Electronic Immunization System (PREIS). Every COVID-19 test performed in Puerto Rico, hospitalization or death data goes to the BioPortal while every COVID-19 vaccination goes to the PREIS. This provides a unique opportunity to assess booster vaccine effectiveness at a population level. The study period began on `r date_format(first_day)` and ended on `r date_format(last_day)`. -->
+
+
+<!-- The main interest of this study is to estimate the time-varying primary series and booster regimen effectiveness against one primary outcome, confirmed SARS-CoV-2 infection by positive antigen or molecular test (whichever happens first), and two adverse COVID-19 outcomes, namely, hospitalization and death. Adverse outcomes are preceded by a confirmed SARS-CoV-2 infection.-->
+
+
+## Results
+
+### Booster data
+
+As of `r format(analysis_last_day, "%B %e, %Y")`, `r make_pretty(totals$vaxed)` of the `r make_pretty(pr_pop)` individuals living in Puerto Rico had been fully vaccinated and `r make_pretty(totals$boosted)` of these had received the booster shot. The majority of people received booster shots of the same manufacturer as those in their initial series. Few had completed mix-n-match booster regimens. In all, `r make_pretty(sum(filter(booster_full_totals, booster_manu=="MOD")$total))` `r manu_labels[["MOD"]]`, `r make_pretty(sum(filter(booster_full_totals, booster_manu=="PFR")$total))` `r manu_labels[["PFR"]]` and `r make_pretty(sum(filter(booster_full_totals, booster_manu=="JSN")$total))` `r manu_labels[["JSN"]]` booster shots were administered in Puerto Rico (Table \@ref(tab:booster-total)). Because so few `r manu_labels[["JSN"]]` booster doses had been administered, we removed these from the analysis comparing booster regimens. 
+
+### Vaccination series and booster effectiveness
+
+We estimated time-varying effectiveness of a primary series of COVID-19 vaccines for three COVID-19 outcomes: SARS-CoV-2 laboratory confirmed infection, COVID-19 hospitalization and death. Vaccine effectiveness against SARS-CoV-2 infection after completion of the primary series reached a peak effectiveness right after completion  `r filter(vax_cases_tab, manu=="MOD" & months=="0")$text`, `r filter(vax_cases_tab, manu=="PFR" & months=="0")$text`, and `r filter(vax_cases_tab, manu=="JSN" & months=="0")$text` for `r manu_labels[["MOD"]]`, `r manu_labels[["PFR"]]`, and `r manu_labels[["JSN"]]`, respectively. After six months, vaccine effectiveness dropped to `r filter(vax_cases_tab, manu=="MOD" & months=="6+")$text`, `r filter(vax_cases_tab, manu=="PFR" & months=="6+")$text`, and `r filter(vax_cases_tab, manu=="JSN" & months=="6+")$text` for `r manu_labels[["MOD"]]`, `r manu_labels[["PFR"]]`, and `r manu_labels[["JSN"]]`, respectively.  However, booster shots restore vaccine effectiveness against infection (Figure \@ref(fig:vax-booster-effe), Table  \@ref(tab:vax-effe-time)). Specifically, homologous booster regimens restored vaccine effectiveness infection to
+`r filter(bst_cases_tab, combo==	"MOD + MOD")$text` for 
+`r gsub("PFR", manu_labels["PFR"], gsub("MOD", manu_labels["MOD"], filter(bst_cases_tab, combo==	"MOD + MOD")$combo))` 
+and to `r filter(bst_cases_tab, combo==	"PFR + PFR")$text` for 
+`r gsub("PFR", manu_labels["PFR"], gsub("MOD", manu_labels["MOD"], filter(bst_cases_tab, combo==	"PFR + PFR")$combo))`. 
+Heterologous booster regimens restored vaccine effectiveness against infection to `r filter(bst_cases_tab, combo==	"JSN + MOD or PFR")$text` for `r gsub("PFR", manu_labels["PFR"], gsub("MOD", manu_labels["MOD"], filter(bst_cases_tab, combo==	"JSN + MOD or PFR")$combo))` 
+and to `r filter(bst_cases_tab, combo==	"MOD + PFR or PFR + MOD")$text` for  `r gsub("PFR", manu_labels["PFR"], gsub("MOD", manu_labels["MOD"], filter(bst_cases_tab, combo==	"MOD + PFR or PFR + MOD")$combo))`. 
+<!--(Table \@ref(tab:mix-effe))-->
+
+Furthermore, we estimated vaccine effectiveness against COVID-19 hospitalization and death. During the first six months after completion of the primary series, vaccine effectiveness against COVID-19 hospitalization averaged
+`r filter(vax_events_tab, outcome=="hosp" & manu =="MOD" & months =="0")$text`, and
+`r filter(vax_events_tab, outcome=="hosp" & manu =="PFR" & months =="0")$text`, for 
+`r manu_labels[["MOD"]]`, `r manu_labels[["PFR"]]`, respectively. After six months, effectiveness decreased to `r filter(vax_events_tab, outcome=="hosp" & manu =="MOD" & months =="6+")$text` and `r filter(vax_events_tab, outcome=="hosp" & manu =="PFR" & months =="6+")$text` for `r manu_labels[["MOD"]]` and `r manu_labels[["PFR"]]`, respectively. With the  `r manu_labels[["JSN"]]`, effectiveness averaged `r filter(vax_events_tab, outcome=="hosp" & manu =="JSN" & months =="0")$text` for the first two months and dropped to `r filter(vax_events_tab, outcome=="hosp" & manu =="JSN" & months =="2+")$text` after that (Figure \@ref(fig:vax-eff-hosp-death), Table \@ref(tab:vax-hosp-death-effe)). During the first six months after the completion of the primary series, vaccine effectiveness against COVID-19 deaths averaged
+`r filter(vax_events_tab, outcome=="death" & manu =="MOD" & months =="0")$text`, and
+`r filter(vax_events_tab, outcome=="death" & manu =="PFR" & months =="0")$text`, for 
+`r manu_labels[["MOD"]]`, `r manu_labels[["PFR"]]`, respectively. After six months, effectiveness decreased to `r filter(vax_events_tab, outcome=="death" & manu =="MOD" & months =="6+")$text` and `r filter(vax_events_tab, outcome=="death" & manu =="PFR" & months =="6+")$text` for `r manu_labels[["MOD"]]` and `r manu_labels[["PFR"]]`, respectively. For `r manu_labels[["JSN"]]`, effectiveness averaged `r filter(vax_events_tab, outcome=="death" & manu =="JSN" & months =="0")$text` for the first two months and dropped to `r filter(vax_events_tab, outcome=="death" & manu =="JSN" & months =="2+")$text` after that (Figure \@ref(fig:vax-eff-hosp-death), Table \@ref(tab:vax-hosp-death-effe)). Due to small sample size, to increase statistical power, for hospitalizations and deaths, we computed vaccine effectiveness for all individuals receiving a booster shot. We found that a booster dose restored effectiveness to `r filter(bst_events_tab, outcome=="hosp")$text` against hospitalization and `r filter(bst_events_tab, outcome=="death")$text` against death (Table \@ref(tab:booster-events)).
+
+
+## Discussion
+
+In this observational study, we found that primary series vaccine effectiveness against all COVID-19 outcomes decreases substantially over time. However, COVID-19 `r manu_labels[["MOD"]]` and `r manu_labels[["PFR"]]` booster regimens restore effectiveness for all three vaccine primary series against SARS-CoV-2 laboratory confirmed infections.  In the case of `r manu_labels[["JSN"]]`, the booster regimen effectiveness againts SARS-CoV-2 laboratory confirmed infection improves substantially over the primary dose effectiveness. Similarly, booster regimens restore effectiveness against COVID-19 hospitalizations and deaths. Booster vaccine effectiveness against SARS-CoV-2 laboratory confirmed infection remains constant over a period of three months. These findings highlight the importance of booster shots to prevent adverse COVID-19 outcomes and minimize stress on health care systems. 
+
+
+## Acknowledgments
+
+We thank Dr. Iris Cardona, PRDH Chief Medical Officer, and Dr. Carlos Mellado, Puerto Rico's Secretary of Health, for their continued support and collaboration. We also thank Elvis Nieves, BioPortal Coordinator, and his team for their help and collaboration. 
+
+## References
+
+<div id="refs"></div>
+
+\pagebreak
+## Figures
+
+```{r vax-booster-effe, fig.width = 6, fig.height = 3, out.width="75%", fig.cap= "Estimated effectiveness against infection plotted against days since the individuals were fully vaccinated. The ribbons represent point-wise 95\\% confidence intervals. A) Vaccine effectiveness against infections by manufacturer for the entire study period. B) Booster effectiveness against infections by manufacturer."}
+
+library(ggpubr)
+p1<-vax_waning_fits %>% filter(outcome=="cases") %>%
+  ggplot(aes(day, fit, ymin=conf.low, ymax=conf.high, color = manu, fill=manu)) +
+  geom_ribbon(alpha=0.5, color = NA, show.legend = FALSE)+
+  geom_line(lty=2) +
+  coord_cartesian(ylim = c(0,1)) +
+  scale_y_continuous(labels=scales::percent)+
+  theme_bw() + 
+  scale_color_manual(labels = c(manu_labels[["MOD"]], manu_labels[["PFR"]], manu_labels[["JSN"]]),
+                     values = c(manu_colors[["MOD"]], manu_colors[["PFR"]], manu_colors[["JSN"]]), name = "Vaccine") + 
+  scale_fill_manual(values = c(manu_colors[["MOD"]], manu_colors[["PFR"]], manu_colors[["JSN"]])) +
+  ylab("Vaccine Effectiveness") +
+  xlab("Days since fully vaccinated") +
+  ggtitle("A")
+
+p2 <- bst_waning_fits %>% filter(manu!="JSN") %>%
+  ggplot(aes(day, fit, ymin=conf.low, ymax=conf.high, color = manu, fill=manu)) +
+  geom_ribbon(alpha=0.5, color = NA, show.legend = FALSE)+
+  geom_line(lty=2) +
+  coord_cartesian(ylim = c(0,1)) +
+  scale_y_continuous(labels=scales::percent)+
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  scale_color_manual(labels = c(manu_labels[["MOD"]], manu_labels[["PFR"]], manu_labels[["JSN"]]),
+                     values = c(manu_colors[["MOD"]], manu_colors[["PFR"]], manu_colors[["JSN"]]), name = "Vaccine") + 
+  scale_fill_manual(values = c(manu_colors[["MOD"]], manu_colors[["PFR"]], manu_colors[["JSN"]])) +
+  ylab("Booster Effectiveness") +
+  xlab("Days since boosted") +
+  ggtitle("B")
+
+ggarrange(p1, p2, widths = c(2, 1), ncol=2, common.legend = TRUE, legend = "bottom")
+```
+
+```{r vax-eff-hosp-death, fig.width = 8, fig.height = 3, fig.cap = "Estimated effectiveness against SARS-CoV-2 laboratory confirmed infection plotted against days since the individuals were fully vaccinated. The ribbons represent point-wise 95\\% confidence intervals. A) Hospitalization. B) Death.", out.width="100%"}
+outcome_labeller <- c(hosp = "A) Hospitalization", death = "B) Death")
+
+vax_waning_fits %>% filter(outcome!="cases") %>%
+  ggplot(aes(day, fit, ymin=conf.low, ymax=conf.high, color = manu, fill=manu)) +
+  geom_ribbon(alpha=0.5, color = NA, show.legend = FALSE)+
+  geom_line(lty=2) +
+  coord_cartesian(ylim = c(0,1)) +
+  scale_y_continuous(labels=scales::percent)+
+  facet_wrap(~outcome, labeller = labeller(outcome = as_labeller(outcome_labeller))) +
+  scale_color_manual(labels = c(manu_labels[["MOD"]], manu_labels[["PFR"]], manu_labels[["JSN"]]),
+                     values = c(manu_colors[["MOD"]], manu_colors[["PFR"]], manu_colors[["JSN"]]), name = "Vaccine") + 
+  scale_fill_manual(values = c(manu_colors[["MOD"]], manu_colors[["PFR"]], manu_colors[["JSN"]])) +
+  ylab("Vaccine Effectiveness") +
+  xlab("Days since full vaccination")+
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  theme(strip.background = element_blank(), 
+        strip.text = element_text(hjust = 0, size = 12))
+```
+
+\pagebreak
+## Tables
+
+```{r booster-total}
+booster_full_totals %>% 
+  mutate(booster_manu = manu_labels[as.character(booster_manu)], manu = manu_labels[as.character(manu)]) %>%
+  mutate(total = make_pretty(total)) %>%
+  arrange(desc(total)) %>%
+  setNames(c("Initial series", "Booster", "Total")) %>%
+  flextable() %>% theme_vanilla() %>%
+  set_caption("For each combination of initial series and booster manufacturers, we show the number of individuals receiving the respective combination.") %>%
+  fontsize(size=10) %>%
+  autofit() %>% 
+  align( i = NULL, j = c(3), align = "right", part = "all")
+```
+
+\pagebreak
+
+```{r vax-effe-time}
+tmp <- data.frame(months = "booster", 
+                  manu = c("MOD", "PFR", "JSN"),
+                  text = c(filter(bst_cases_tab, combo == "MOD + MOD")$text,
+                           filter(bst_cases_tab, combo == "PFR + PFR")$text,
+                           filter(bst_cases_tab, combo == "JSN + MOD or PFR")$text))
+                  
+vax_cases_tab %>% 
+  select(manu, months, text) %>% 
+  bind_rows(tmp) %>%
+  pivot_wider(id_cols=c("months"), names_from = c("manu"), values_from = c("text")) %>% 
+  mutate(months = recode(months, "0" = "Right after vaccination",
+                         "(0-2]" = "0 to 2 months after vaccination",
+                         "(2-4]" = "2 to 4 months after vaccination",
+                         "(4-6]" = "4 to 6 months after vaccination",
+                         "6+" = "More than 6 months after vaccination",
+                         "booster" = "Boosted"))%>%
+  setNames(c("Status",  manu_labels["MOD"], manu_labels["PFR"], manu_labels["JSN"])) %>%
+  flextable::flextable() %>% theme_vanilla() %>%
+  set_caption("Effectiveness against SARS-CoV-2 laboratory confirmed infection with 95% confidence intervals by time period since full vaccination for each vaccine manufacturer.") %>% 
+  fontsize(size=10) %>%
+  hrule(rule = "exact", part = "body") %>% 
+  width(width =  1.5) %>% 
+  set_table_properties(layout = "fixed") %>%
+  align( i = NULL, j = c(2:4), align = "right", part = "all")
+```
+
+\pagebreak
+```{r vax-hosp-death-effe}
+vax_events_tab %>% 
+  select(outcome, manu, months, text) %>% 
+  mutate(outcome = recode(outcome, hosp = "Hospitalization", death = "Deaths")) %>%
+  mutate(months = case_when(months == "0" ~ "Right after dose completion",
+                            str_detect(months, "]") ~ "Not eligible for booster",
+                            TRUE ~ "Booster recommended")) %>%
+  mutate(months = factor(months, levels = c("Right after dose completion","Not eligible for booster", "Booster recommended"))) %>%
+  pivot_wider(names_from = c("manu"), values_from = c("text")) %>%
+  arrange(outcome, months) %>% 
+  setNames(c("Outcome", "Time period",  manu_labels["MOD"], manu_labels["PFR"], manu_labels["JSN"])) %>%
+  flextable::flextable() %>% theme_vanilla() %>%
+  set_caption(paste0("Effectiveness against COVID-19 adverse events with 95% point-wise confidence intervals by time period after completion of dose. Boosters are recommended after 6 months for ", manu_labels[["MOD"]], " and ", manu_labels[["MOD"]], " and after two months for ", manu_labels[["JSN"]], "."), style = "paragraph") %>% 
+  fontsize(size=10) %>%
+  hrule(rule = "exact", part = "body") %>% 
+  width(width =  1.2) %>% 
+  set_table_properties(layout = "fixed")  %>%
+  align( i = NULL, j = c(3:5), align = "right", part = "all")
+```
+
+
+
+```{r booster-events, tab.cap = "Booster effectiveness against COVID-19 hospitalization and death.", cap.align="left"}
+
+bst_events_tab %>% 
+  mutate(outcome = case_when(outcome == "hosp" ~ "Hospitalization", 
+                             outcome == "death" ~ "Death")) %>%
+  setNames(c("COVID-19 Outcome", "Booster effectiveness")) %>% 
+  flextable::flextable() %>% theme_vanilla() %>%
+  # set_caption("Booster effectiveness against COVID-19 hospitalization and death.") %>%
+  fontsize(size=10) %>%
+  autofit() %>%
+  align( i = NULL, j = c(2), align = "right", part = "all")
+```
+
+
+
+<!--
+```{r mix-effe}
+
+pretty_bst_cases_tab <- bst_cases_tab %>% 
+  mutate(combo = 
+           case_when(combo == "JSN + MOD or PFR" ~ paste0(manu_labels["JSN"], " + ",
+                                                          manu_labels["MOD"], " or ",
+                                                          manu_labels["PFR"]), 
+                     combo == "MOD + MOD" ~ paste0(manu_labels["MOD"], " + ",
+                                                   manu_labels["MOD"]), 
+                     combo == "MOD + PFR or PFR + MOD" ~ paste0(manu_labels["MOD"], " + ",
+                                                                manu_labels["PFR"], " or ",
+                                                                manu_labels["PFR"], " + ",
+                                                                manu_labels["MOD"] ), 
+                     combo == "PFR + PFR" ~ paste0(manu_labels["PFR"], " + ", 
+                                                   manu_labels["PFR"])))
+
+pretty_bst_cases_tab %>% 
+  setNames(c("Combination", "Booster effectiveness")) %>% 
+  flextable::flextable() %>%
+  set_caption("Booster effectiveness against SARS-CoV-2 laboratory detected infection for four vaxine combinations for initial dose and booster.") %>% 
+  fontsize(size=10) %>%
+  autofit()
+```
+-->
+
